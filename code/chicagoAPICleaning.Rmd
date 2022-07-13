@@ -1,0 +1,65 @@
+---
+title: "R Notebook"
+---
+
+```{r setup}
+library(rvest)
+library(tidyverse)
+```
+
+```{r}
+# dat$data %>%
+#   as_tibble() %>%
+#   select(title,id,api_link,is_public_domain,thumbnail,dimensions,
+#          date_start,date_end,date_display,
+#          artist_display,medium_display,
+#          colorfulness,color,
+#          artist_id,artist_title,category_ids,category_titles,
+#          style_id,style_title,classification_id,classification_title,
+#          subject_ids,subject_titles,image_id,
+#          place_of_origin)
+
+dat <- jsonlite::fromJSON("https://api.artic.edu/api/v1/artworks/search?&query[term][is_public_domain]=true&fields=id,title,image_id,api_link,height,width")
+
+dat$data %>%
+  mutate(image_url = paste0("https://www.artic.edu/iiif/2",image_id,"/full/843,/0/default.jpg"))
+```
+
+Clean the artvee data
+
+```{r}
+artveeData <- rvest::read_html("https://artvee.com/main/") %>%
+  html_elements("body") %>%
+  html_elements("div")#?s=mountain")
+
+data_urls <- artveeData %>%
+  html_attr("data-url")
+
+artvee_im_urls <- artveeData %>%
+  .[which(!is.na(data_urls))] %>%
+  html_elements("img") %>%
+  html_attr("data-wood-src")
+  
+artvee_im_dimensions <- artveeData  %>%
+  .[which(!is.na(data_urls))] %>%
+    html_attr("data-sk")  %>%
+  str_extract('\"hdlimagesize\":\"[0-9]{1,} x [0-9]{1,}') %>%
+  str_remove('\"hdlimagesize\":\"') %>%
+  str_split(" x ") %>%
+  map_dbl(~ as.numeric(.[1]))
+
+data.frame(artvee_dataURL = data_urls[which(!is.na(data_urls))],
+           artvee_imURL = artvee_im_urls) %>%
+  mutate(art_artTitle = artvee_dataURL %>%
+           str_remove("/dl/") %>%
+           str_replace("-"," "),
+         artvee_imID =  str_remove(artvee_imURL,"	https://mdl.artvee.com/ft/"),
+         artvee_imWidth = map_dbl(artvee_im_dimensions,~ .[1]),
+         artvee_imHeight = map_dbl(artvee_im_dimensions,~ .[2]),
+         artvee_downloadLink = paste0("https://mdl.artvee.com/hdl/",artvee_imID))
+
+
+dat1 <- read_html("https://mdl.artvee.com/hdl/507028ld.jpg")
+```
+
+4789eebb54
